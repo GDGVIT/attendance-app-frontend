@@ -35,11 +35,15 @@ export function MeetCard({
 }: Props) {
   const [location, setLocation] = useState<Location>({ lat: 0, long: 0 });
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition(({ coords }) => {
-      const { latitude, longitude } = coords;
-      setLocation({ lat: latitude, long: longitude });
-      console.log(latitude, longitude);
-    });
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(({ coords }) => {
+        const { latitude, longitude } = coords;
+        setLocation({ lat: latitude, long: longitude });
+        console.log(latitude, longitude);
+      });
+    } else {
+      toast.error("please enable location");
+    }
   }, []);
   async function startMeeting() {
     try {
@@ -180,29 +184,35 @@ export function MeetCard({
         {},
         config
       );
-
-      const distance =
-        meetRes.data.Location.Latitude -
-        location.lat +
-        (meetRes.data.Location.Longitude - location.long);
-      if (distance > 50) {
-        toast.error("too far away to mark attendance");
-      }
-
-      const res = await axios.patch(
-        `https://atapp.fly.dev/v1/team/${teamId}/meetings/${meetId}/attendance`,
-        {},
-        config
-      );
-      console.log(res.data, res.status);
-      if (res.status === 200) {
-        setGoing(true);
-        toast.success("attendance posted!");
+      if (location.lat === 0 || location.long === 0) {
+        toast.error("please enable location to give attendance");
       } else {
-        toast.error("failed to mark attendance");
-        toast.error(res.data.error);
+        const distance =
+          meetRes.data.Location.Latitude -
+          location.lat +
+          (meetRes.data.Location.Longitude - location.long);
+        if (distance > 50) {
+          toast.error("too far away to mark attendance");
+        }
+
+        const res = await axios.patch(
+          `https://atapp.fly.dev/v1/team/${teamId}/meetings/${meetId}/attendance`,
+          {},
+          config
+        );
+        console.log(res.data, res.status);
+        if (res.status === 200) {
+          setGoing(true);
+          toast.success("attendance posted!");
+        } else {
+          toast.error("failed to mark attendance");
+          toast.error(res.data.error);
+        }
       }
-    } catch (e) {}
+    } catch (e) {
+      toast.error("some error occured");
+      console.error(e);
+    }
   }
 
   function handleAttendance() {
